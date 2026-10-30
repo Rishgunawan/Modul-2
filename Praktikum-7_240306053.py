@@ -1,359 +1,167 @@
-
 import numpy as np
 import matplotlib.pyplot as plt
-from itertools import product
+
+def trimf(x, params):
+    """Fungsi keanggotaan segitiga [a, b, c]"""
+    a, b, c = params
+    y = np.zeros_like(x, dtype=float)
+    idx1 = (x > a) & (x <= b)
+    if np.any(idx1) and b != a:
+        y[idx1] = (x[idx1] - a) / (b - a)
+    idx2 = (x > b) & (x < c)
+    if np.any(idx2) and c != b:
+        y[idx2] = (c - x[idx2]) / (c - b)
+    return np.clip(y, 0.0, 1.0)
+
+def trapmf(x, params):
+    """Fungsi keanggotaan trapesium [a, b, c, d]"""
+    a, b, c, d = params
+    y = np.zeros_like(x, dtype=float)
+    idx1 = (x > a) & (x <= b)
+    if np.any(idx1) and b != a:
+        y[idx1] = (x[idx1] - a) / (b - a)
+    idx2 = (x >= b) & (x <= c)
+    y[idx2] = 1.0
+    idx3 = (x > c) & (x < d)
+    if np.any(idx3) and d != c:
+        y[idx3] = (d - x[idx3]) / (d - c)
+    return np.clip(y, 0.0, 1.0)
 
 
-# ==========================================
-# 1. FUNGSI KEANGGOTAAN
-# ==========================================
-
-def trimf(x, a, b, c):
-    """Fungsi keanggotaan segitiga."""
-    if x < a or x > c:
-        return 0.0
-    if x == b:
-        return 1.0
-    if x < b:
-        return (x - a) / (b - a) if b != a else 1.0
-    return (c - x) / (c - b) if c != b else 1.0
-
-
-def trapmf(x, a, b, c, d):
-    """Fungsi keanggotaan trapesium."""
-    if x < a or x > d:
-        return 0.0
-    if b <= x <= c:
-        return 1.0
-    if a <= x < b:
-        return (x - a) / (b - a) if b != a else 1.0
-    if c < x <= d:
-        return (d - x) / (d - c) if d != c else 1.0
-    return 0.0
-
-
-def left_shoulder(x, a, b, c):
-    """Trapesium bahu kiri."""
-    if x <= b:
-        return 1.0 if x >= a else 1.0
-    if x >= c:
-        return 0.0
-    return (c - x) / (c - b)
-
-
-def right_shoulder(x, a, b, c):
-    """Trapesium bahu kanan."""
-    if x <= a:
-        return 0.0
-    if x >= b:
-        return 1.0
-    return (x - a) / (b - a)
-
-
-# ==========================================
-# 2. ARSITEKTUR FUZZY INFERENCE SYSTEM
-# ==========================================
-
-class FuzzyInferenceSystem:
-
+class DriverFatigueFIS:
     def __init__(self):
-        self.inputs = {}
-        self.output = None
+        # Domain semesta pembicaraan
+        self.x_jam = np.linspace(0, 12, 300)       # 0 - 12 jam
+        self.x_ist = np.linspace(0, 4, 300)        # 0 - 4 jam
+        self.x_jarak = np.linspace(0, 500, 300)    # 0 - 500 km
+        self.z_risiko = np.linspace(0, 100, 500)   # 0 - 100 %
+
+        self._build_membership_functions()
+        self._build_27_rules()
+
+    def _build_membership_functions(self):
+        # Jam Kerja
+        self.mf_jam = {
+            "Singkat": trapmf(self.x_jam, [0, 0, 2, 5]),
+            "Sedang": trimf(self.x_jam, [3, 6, 9]),
+            "Lama": trapmf(self.x_jam, [7, 10, 12, 12])
+        }
+        # Waktu Istirahat
+        self.mf_ist = {
+            "Kurang": trapmf(self.x_ist, [0, 0, 0.5, 1.5]),
+            "Cukup": trimf(self.x_ist, [1.0, 2.0, 3.0]),
+            "Lama": trapmf(self.x_ist, [2.5, 3.5, 4.0, 4.0])
+        }
+        # Jarak Tempuh
+        self.mf_jarak = {
+            "Dekat": trapmf(self.x_jarak, [0, 0, 50, 150]),
+            "Sedang": trimf(self.x_jarak, [100, 250, 400]),
+            "Jauh": trapmf(self.x_jarak, [300, 425, 500, 500])
+        }
+        # Output: Risiko Kelelahan
+        self.mf_risiko = {
+            "Rendah": trapmf(self.z_risiko, [0, 0, 20, 45]),
+            "Sedang": trimf(self.z_risiko, [35, 50, 65]),
+            "Tinggi": trapmf(self.z_risiko, [55, 80, 100, 100])
+        }
+
+    def _build_27_rules(self):
+        labels_jam = ["Singkat", "Sedang", "Lama"]
+        labels_ist = ["Kurang", "Cukup", "Lama"]
+        labels_jarak = ["Dekat", "Sedang", "Jauh"]
+        skor_j = {"Singkat": 0, "Sedang": 1, "Lama": 2}
+        skor_i = {"Kurang": 2, "Cukup": 1, "Lama": 0}
+        skor_d = {"Dekat": 0, "Sedang": 1, "Jauh": 2}
+
         self.rules = []
+        r_id = 1
+        for j in labels_jam:
+            for i in labels_ist:
+                for d in labels_jarak:
+                    skor = skor_j[j] + skor_i[i] + skor_d[d]
+                    cons = "Rendah" if skor <= 2 else ("Sedang" if skor <= 4 else "Tinggi")
+                    self.rules.append({
+                        "id": f"R{r_id}",
+                        "antecedent": {"Jam Kerja": j, "Istirahat": i, "Jarak": d},
+                        "consequent": cons
+                    })
+                    r_id += 1
 
-    def add_input_variable(self, name, universe, mf_dict):
-        self.inputs[name] = {
-            "universe": universe,
-            "mf": mf_dict
-        }
+    def compute(self, val_jam, val_ist, val_jarak):
+        # 1. Fuzzifikasi
+        f_j = {k: float(np.interp(val_jam, self.x_jam, v)) for k, v in self.mf_jam.items()}
+        f_i = {k: float(np.interp(val_ist, self.x_ist, v)) for k, v in self.mf_ist.items()}
+        f_d = {k: float(np.interp(val_jarak, self.x_jarak, v)) for k, v in self.mf_jarak.items()}
 
-    def set_output_variable(self, name, universe, mf_dict):
-        self.output = {
-            "name": name,
-            "universe": universe,
-            "mf": mf_dict
-        }
+        # 2. Implikasi
+        imp_rendah = np.zeros_like(self.z_risiko)
+        imp_sedang = np.zeros_like(self.z_risiko)
+        imp_tinggi = np.zeros_like(self.z_risiko)
 
-    def add_rule(self, rule_tuple):
-        # Format:
-        # (label_jam, label_istirahat,
-        #  label_jarak, label_output)
-        self.rules.append(rule_tuple)
+        firing_rules = []
+        for r in self.rules:
+            alpha = min(f_j[r["antecedent"]["Jam Kerja"]],
+                        f_i[r["antecedent"]["Istirahat"]],
+                        f_d[r["antecedent"]["Jarak"]])
+            if alpha > 0:
+                firing_rules.append((r["id"], r["consequent"], alpha))
+                if r["consequent"] == "Rendah":
+                    imp_rendah = np.maximum(imp_rendah, np.minimum(alpha, self.mf_risiko["Rendah"]))
+                elif r["consequent"] == "Sedang":
+                    imp_sedang = np.maximum(imp_sedang, np.minimum(alpha, self.mf_risiko["Sedang"]))
+                elif r["consequent"] == "Tinggi":
+                    imp_tinggi = np.maximum(imp_tinggi, np.minimum(alpha, self.mf_risiko["Tinggi"]))
 
-    def fuzzify(self, input_values):
-        fuzzified = {}
+        # 3. Agregasi (Max)
+        agregasi = np.maximum(imp_rendah, np.maximum(imp_sedang, imp_tinggi))
 
-        for name, value in input_values.items():
-            if name not in self.inputs:
-                raise ValueError(f"Input tidak dikenal: {name}")
+        # 4. Defuzzifikasi Centroid
+        total_mu = np.sum(agregasi)
+        z_crisp = np.sum(self.z_risiko * agregasi) / total_mu if total_mu > 0 else 0.0
 
-            var = self.inputs[name]
-
-            if not np.isfinite(value):
-                raise ValueError(f"Input {name} tidak valid.")
-
-            if value < min(var["universe"]) or \
-               value > max(var["universe"]):
-                raise ValueError(
-                    f"{name} di luar domain."
-                )
-
-            fuzzified[name] = {
-                label: mf(value)
-                for label, mf in var["mf"].items()
-            }
-
-        return fuzzified
-
-    def compute(self, input_values):
-
-        if self.output is None:
-            raise ValueError("Output belum ditentukan.")
-
-        if set(input_values) != set(self.inputs):
-            raise ValueError(
-                "Input harus sesuai variabel sistem."
-            )
-
-        fuzzified = self.fuzzify(input_values)
-
-        universe = self.output["universe"]
-        aggregated = np.zeros_like(
-            universe, dtype=float
-        )
-
-        active_rules = []
-
-        for rule in self.rules:
-            jam, istirahat, jarak, hasil = rule
-
-            alpha = min(
-                fuzzified["Jam Kerja"][jam],
-                fuzzified["Waktu Istirahat"][istirahat],
-                fuzzified["Jarak Tempuh"][jarak]
-            )
-
-            if alpha <= 0:
-                continue
-
-            output_mf = self.output["mf"][hasil]
-
-            # Implikasi Mamdani: MIN
-            clipped = np.minimum(
-                alpha,
-                np.array([output_mf(z) for z in universe])
-            )
-
-            # Agregasi: MAX
-            aggregated = np.maximum(
-                aggregated, clipped
-            )
-
-            active_rules.append(
-                (rule, alpha)
-            )
-
-        # Defuzzifikasi Centroid
-        denominator = np.sum(aggregated)
-
-        if denominator == 0:
-            raise ValueError(
-                "Tidak ada aturan aktif."
-            )
-
-        crisp_output = np.sum(
-            universe * aggregated
-        ) / denominator
-
-        return {
-            "fuzzified": fuzzified,
-            "active_rules": active_rules,
-            "aggregated": aggregated,
-            "crisp_output": crisp_output
-        }
+        return z_crisp, agregasi, firing_rules
 
 
-# ==========================================
-# 3. MEMBANGUN SISTEM FUZZY
-# ==========================================
+# ==========================================================
+# SIMULASI & PENGUJIAN 3 KASUS
+# ==========================================================
+fis = DriverFatigueFIS()
 
-fis = FuzzyInferenceSystem()
-
-# Input 1: Jam Kerja (0-16 jam)
-fis.add_input_variable(
-    "Jam Kerja",
-    np.arange(0, 17, 1),
-    {
-        "Singkat": lambda x: trapmf(x, 0, 0, 2, 6),
-        "Sedang": lambda x: trimf(x, 4, 8, 12),
-        "Lama": lambda x: trapmf(x, 10, 14, 16, 16)
-    }
-)
-
-# Input 2: Waktu Istirahat (0-12 jam)
-fis.add_input_variable(
-    "Waktu Istirahat",
-    np.arange(0, 13, 1),
-    {
-        "Kurang": lambda x: trapmf(x, 0, 0, 1, 3),
-        "Cukup": lambda x: trimf(x, 2, 5, 8),
-        "Lama": lambda x: trapmf(x, 7, 10, 12, 12)
-    }
-)
-
-# Input 3: Jarak Tempuh (0-1000 km)
-fis.add_input_variable(
-    "Jarak Tempuh",
-    np.arange(0, 1001, 1),
-    {
-        "Dekat": lambda x: trapmf(x, 0, 0, 100, 300),
-        "Sedang": lambda x: trimf(x, 200, 500, 800),
-        "Jauh": lambda x: trapmf(x, 600, 850, 1000, 1000)
-    }
-)
-
-# Output: Risiko Kelelahan (0-100)
-fis.set_output_variable(
-    "Risiko Kelelahan",
-    np.arange(0, 101, 1),
-    {
-        "Rendah": lambda z: trapmf(z, 0, 0, 20, 45),
-        "Sedang": lambda z: trimf(z, 25, 50, 75),
-        "Tinggi": lambda z: trapmf(z, 55, 80, 100, 100)
-    }
-)
-
-
-# ==========================================
-# 4. BASIS ATURAN 27 RULE
-# ==========================================
-
-# Urutan jarak: Dekat, Sedang, Jauh
-# Baris: waktu istirahat Kurang, Cukup, Lama
-
-rule_matrix = {
-    "Singkat": [
-        ["Sedang", "Sedang", "Tinggi"],
-        ["Rendah", "Rendah", "Sedang"],
-        ["Rendah", "Rendah", "Rendah"]
-    ],
-
-    "Sedang": [
-        ["Sedang", "Sedang", "Tinggi"],
-        ["Rendah", "Sedang", "Sedang"],
-        ["Rendah", "Rendah", "Sedang"]
-    ],
-
-    "Lama": [
-        ["Tinggi", "Tinggi", "Tinggi"],
-        ["Sedang", "Sedang", "Tinggi"],
-        ["Sedang", "Sedang", "Sedang"]
-    ]
-}
-
-jam_labels = ["Singkat", "Sedang", "Lama"]
-istirahat_labels = ["Kurang", "Cukup", "Lama"]
-jarak_labels = ["Dekat", "Sedang", "Jauh"]
-
-for jam, istirahat, jarak in product(
-    jam_labels, istirahat_labels, jarak_labels
-):
-    i = istirahat_labels.index(istirahat)
-    j = jarak_labels.index(jarak)
-
-    hasil = rule_matrix[jam][i][j]
-
-    fis.add_rule((jam, istirahat, jarak, hasil))
-
-
-# ==========================================
-# 5. PENGUJIAN SISTEM
-# ==========================================
-
-test_cases = [
-    {
-        "nama": "Kasus 1",
-        "input": {
-            "Jam Kerja": 3,
-            "Waktu Istirahat": 8,
-            "Jarak Tempuh": 100
-        }
-    },
-    {
-        "nama": "Kasus 2",
-        "input": {
-            "Jam Kerja": 8,
-            "Waktu Istirahat": 5,
-            "Jarak Tempuh": 500
-        }
-    },
-    {
-        "nama": "Kasus 3",
-        "input": {
-            "Jam Kerja": 14,
-            "Waktu Istirahat": 1,
-            "Jarak Tempuh": 850
-        }
-    }
+kasus_list = [
+    {"nama": "Kasus 1 (Aman)", "jam": 2.0, "ist": 3.0, "jarak": 50},
+    {"nama": "Kasus 2 (Sedang)", "jam": 6.0, "ist": 1.5, "jarak": 200},
+    {"nama": "Kasus 3 (Bahaya)", "jam": 10.0, "ist": 0.5, "jarak": 400}
 ]
 
-results = []
+print("=" * 75)
+print("HASIL EKSEKUSI PIPELINE FIS — PENILAIAN RISIKO KELELAHAN PENGEMUDI")
+print("=" * 75)
 
-for case in test_cases:
-    result = fis.compute(case["input"])
+for k in kasus_list:
+    z_out, agg, active_r = fis.compute(k["jam"], k["ist"], k["jarak"])
+    print(f"\n[{k['nama']}]")
+    print(f"Input  : Jam Kerja = {k['jam']}j | Istirahat = {k['ist']}j | Jarak = {k['jarak']}km")
+    print(f"Output : Persentase Risiko Kelelahan = {z_out:.2f}%")
+    print(f"Aturan Aktif ({len(active_r)} aturan):")
+    for r_id, cons, a in active_r:
+        print(f"   - {r_id:<4} : Risiko {cons:<8} | alpha = {a:.2f}")
 
-    score = result["crisp_output"]
-
-    results.append({
-        "nama": case["nama"],
-        "input": case["input"],
-        "result": result
-    })
-
-    print("\n", "=" * 45)
-    print(case["nama"])
-    print("Input:", case["input"])
-
-    print("\nDerajat Keanggotaan:")
-    for variable, memberships in result["fuzzified"].items():
-        print(variable, memberships)
-
-    print("\nAturan Aktif:")
-    for rule, alpha in result["active_rules"]:
-        print(rule, "alpha =", round(alpha, 3))
-
-    print("\nSkor Risiko:", round(score, 2))
-
-
-# ==========================================
-# 6. VISUALISASI AGREGASI OUTPUT
-# ==========================================
-
-for item in results:
-    result = item["result"]
-    universe = fis.output["universe"]
-    aggregated = result["aggregated"]
-    score = result["crisp_output"]
-
-    plt.figure(figsize=(9, 4))
-    plt.fill_between(
-        universe, aggregated, alpha=0.35,
-        label="Agregasi Mamdani"
-    )
-    plt.plot(universe, aggregated,
-             label="Kurva Agregasi")
-    plt.axvline(
-        score, linestyle="--",
-        label=f"Centroid = {score:.2f}"
-    )
-
-    plt.title(
-        f"{item['nama']} - Risiko Kelelahan"
-    )
-    plt.xlabel("Skor Risiko (0-100)")
-    plt.ylabel("Derajat Keanggotaan")
-    plt.ylim(0, 1.05)
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+# Plot Kasus 3 (Bahaya)
+z_out, agg, _ = fis.compute(10.0, 0.5, 400)
+plt.figure(figsize=(10, 5))
+plt.plot(fis.z_risiko, fis.mf_risiko["Rendah"], 'g--', label='MF Rendah', alpha=0.5)
+plt.plot(fis.z_risiko, fis.mf_risiko["Sedang"], 'b--', label='MF Sedang', alpha=0.5)
+plt.plot(fis.z_risiko, fis.mf_risiko["Tinggi"], 'r--', label='MF Tinggi', alpha=0.5)
+plt.fill_between(fis.z_risiko, 0, agg, color='purple', alpha=0.35, label='Area Agregasi Fuzzy')
+plt.plot(fis.z_risiko, agg, color='purple', linewidth=2.5)
+plt.axvline(x=z_out, color='black', linewidth=2.5, linestyle='-', label=f'Crisp Output (Centroid = {z_out:.2f}%)')
+plt.scatter([z_out], [0], color='black', s=80, zorder=6)
+plt.title('Pipeline FIS: Agregasi Konklusi dan Defuzzifikasi Centroid', fontweight='bold')
+plt.xlabel('Tingkat Risiko Kelelahan (%)')
+plt.ylabel('Derajat Keanggotaan μ(z)')
+plt.ylim(-0.05, 1.05)
+plt.grid(True, linestyle=':', alpha=0.6)
+plt.legend(loc='upper left')
+plt.tight_layout()
+plt.savefig('pipeline_fis_agregasi_defuzzifikasi.png', dpi=300)
+plt.show()
