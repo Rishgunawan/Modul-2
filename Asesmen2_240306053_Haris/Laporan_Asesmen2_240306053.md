@@ -166,16 +166,15 @@ $$
 Fungsi trapesium (*trapezoidal membership function*) menggunakan empat
 parameter, yaitu (a), (b), (c), dan (d).
 
-\[ `\mu`{=tex}(x)=
-```{=tex}
+$$
+\mu(x)=
 \begin{cases}
-0, & x \leq a \text{ atau } x \geq d\\
-\dfrac{x-a}{b-a}, & a < x < b\\
-1, & b \leq x \leq c\\
+0, & x \leq a \text{ atau } x \geq d \\
+\dfrac{x-a}{b-a}, & a < x < b \\
+1, & b \leq x \leq c \\
 \dfrac{d-x}{d-c}, & c < x < d
 \end{cases}
-```
-\]
+$$
 
 Pada implementasi program, fungsi trapesium juga menangani bentuk *left
 shoulder* dan *right shoulder*. Bentuk tersebut digunakan ketika dua
