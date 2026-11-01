@@ -14,11 +14,11 @@
 
   Keterangan       Identitas
   ---------------- --------------------------------------------------
-  Nama             ................................................
-  NIM              ................................................
-  Program Studi    ................................................
+  Nama             Lalu Muh Harista Gunawan
+  NIM              240306053
+  Program Studi    Teknologi Informasi
   Mata Kuliah      Logika Fuzzy
-  Dosen Pengampu   ................................................
+  Dosen Pengampu   Ahmad Ashril Rizal, M.Cs.
   Modul            Asesmen Modul 2 -- Fuzzy Decision System
 
 ## 1.2 Judul Proyek
