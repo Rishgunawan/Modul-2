@@ -153,16 +153,15 @@ menjadi derajat keanggotaan fuzzy antara 0 dan 1.
 Fungsi segitiga (*triangular membership function*) menggunakan tiga
 parameter, yaitu (a), (b), dan (c).
 
-\[ `\mu`{=tex}(x)=
-```{=tex}
+$$
+\mu(x)=
 \begin{cases}
-0, & x \leq a \text{ atau } x \geq c\\
-\dfrac{x-a}{b-a}, & a < x < b\\
-\dfrac{c-x}{c-b}, & b < x < c\\
+0, & x \leq a \text{ atau } x \geq c \\
+\dfrac{x-a}{b-a}, & a < x < b \\
+\dfrac{c-x}{c-b}, & b < x < c \\
 1, & x=b
 \end{cases}
-```
-\]
+$$
 
 Fungsi trapesium (*trapezoidal membership function*) menggunakan empat
 parameter, yaitu (a), (b), (c), dan (d).
