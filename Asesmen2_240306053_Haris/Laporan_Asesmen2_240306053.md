@@ -353,7 +353,6 @@ diambil dari nilai maksimum seluruh hasil implikasi.
 
 $$
 \mu_{\text{gabungan}}(y)
-=
 \max_i \left(\mu_i(y)\right)
 $$
 
