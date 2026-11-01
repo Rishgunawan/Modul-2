@@ -191,7 +191,9 @@ dengan keputusan output. Sistem memiliki tiga variabel input dan
 masing-masing terdiri dari tiga himpunan fuzzy. Dengan demikian, jumlah
 seluruh kombinasi aturan adalah:
 
-\[ 3 `\times 3`{=tex} `\times 3`{=tex} = 27 `\text{ aturan}`{=tex} \]
+$$
+3 \times 3 \times 3 = 27 \text{ aturan}
+$$
 
 Penyusunan aturan menggunakan prinsip rancangan berikut:
 
@@ -317,11 +319,16 @@ Setiap aturan dihitung menggunakan operator AND berupa MIN.
 Untuk aturan dengan tiga kondisi, kekuatan aktivasi aturan dihitung
 dengan:
 
-\[ `\alpha`{=tex}*i =
-`\min`{=tex}(`\mu`{=tex}*{`\text{jam}`{=tex}},`\mu`{=tex}*{`\text{istirahat}`{=tex}},`\mu`{=tex}*{`\text{jarak}`{=tex}})
-\]
+$$
+\alpha_i =
+\min\left(
+\mu_{\text{jam}},
+\mu_{\text{istirahat}},
+\mu_{\text{jarak}}
+\right)
+$$
 
-Nilai (`\alpha`{=tex}\_i) menunjukkan tingkat aktivasi aturan ke-i.
+Nilai  $\alpha_i$ menunjukkan tingkat aktivasi aturan ke-i.
 Aturan hanya diproses lebih lanjut jika nilai aktivasi lebih besar dari
 nol.
 
@@ -330,9 +337,13 @@ nol.
 Implikasi menggunakan operator MIN. Derajat aktivasi aturan digunakan
 untuk memotong fungsi keanggotaan output sesuai kekuatan aturan.
 
-\[
-`\mu`{=tex}\_i(y)=`\min`{=tex}(`\alpha`{=tex}*i,`\mu`{=tex}*{`\text{output}`{=tex}\_i}(y))
-\]
+$$
+\mu_i(y) =
+\min\left(
+\alpha_i,
+\mu_{\text{output}_i}(y)
+\right)
+$$
 
 ### D. Agregasi (*Aggregation*)
 
@@ -340,23 +351,37 @@ Semua hasil implikasi digabungkan menggunakan operator MAX. Dengan
 demikian, pada setiap titik domain output, nilai keanggotaan gabungan
 diambil dari nilai maksimum seluruh hasil implikasi.
 
-\[
-`\mu`{=tex}\_{`\text{gabungan}`{=tex}}(y)=`\max`{=tex}\_i(`\mu`{=tex}\_i(y))
-\]
+$$
+\mu_{\text{gabungan}}(y)
+=
+\max_i \left(\mu_i(y)\right)
+$$
 
 ### E. Defuzzifikasi (*Centroid*)
 
 Tahap terakhir mengubah hasil fuzzy menjadi satu nilai tegas (*crisp
 output*). Metode yang digunakan adalah centroid atau titik pusat luas.
 
-\[ z\^\* = `\frac{\int y \cdot \mu_{\text{gabungan}}(y)\,dy}`{=tex}
-{`\int `{=tex}`\mu`{=tex}\_{`\text{gabungan}`{=tex}}(y),dy} \]
+$$
+z^* =
+\frac{
+\int y \cdot \mu_{\text{gabungan}}(y)\,dy
+}{
+\int \mu_{\text{gabungan}}(y)\,dy
+}
+$$
 
 Pada program, centroid dihitung secara diskret menggunakan array `Y`
 yang terdiri dari 1001 titik pada rentang 0 sampai 100:
 
-\[ z\^\* = `\frac{\sum_j y_j \mu_{\text{gabungan}}(y_j)}`{=tex}
-{`\sum`{=tex}*j `\mu`{=tex}*{`\text{gabungan}`{=tex}}(y_j)} \]
+$$
+z^* =
+\frac{
+\sum_j y_j \cdot \mu_{\text{gabungan}}(y_j)
+}{
+\sum_j \mu_{\text{gabungan}}(y_j)
+}
+$$
 
 Karena jarak antar-titik pada domain output seragam, faktor jarak
 antar-titik saling menghapus pada pembilang dan penyebut.
